@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pequeños Ayudantes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700&display=swap');
+       
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #87CEEB;
+            margin: 0;
+            overflow: hidden;
+            touch-action: none; /* Previene scroll en móviles mientras se juega */
+        }
+       
+        h1, h2, h3, .title-font {
+            font-family: 'Fredoka One', cursive;
+        }
+
+        #game-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            aspect-ratio: 4/3;
+            background-color: #000;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            border-radius: 1rem;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Minigame Overlay Styles */
+        #minigame-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255, 255, 255, 0.95);
+            z-index: 50;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            border: 8px solid #FFB6C1;
+            border-radius: 1rem;
+        }
+
+        .minigame-title {
+            font-size: 2rem;
+            color: #FF69B4;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .minigame-area {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            height: 350px;
+            background: #FFF0F5;
+            border-radius: 1rem;
+            border: 4px dashed #FF69B4;
+            overflow: hidden;
+        }
+
+        /* Draggable & Interactable items */
+        .interactive-item {
+            position: absolute;
+            font-size: 4rem;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.2s;
+            touch-action: none;
+        }
+       
+        .interactive-item:hover {
+            transform: scale(1.1);
+        }
+
+        .drop-zone {
+            position: absolute;
+            font-size: 6rem;
+            bottom: 20px;
+            right: 20px;
+        }
+
+        /* Dust / Dirt */
+        .dust-spot {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: radial-gradient(circle, rgba(139,69,19,0.4) 0%, rgba(139,69,19,0) 70%);
+            border-radius: 50%;
+            transition: opacity 0.3s;
+        }
+
+        /* HUD - Más pequeño según solicitud */
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            pointer-events: none;
+            background: rgba(255,255,255,0.85);
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 2px solid #4CAF50;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        /* Controls - D-PAD más pequeño */
+        #dpad {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: grid;
+            grid-template-columns: 40px 40px 40px;
+            grid-template-rows: 40px 40px 40px;
+            gap: 4px;
+            z-index: 10;
+        }
+       
+        .dpad-btn {
+            background: rgba(255,255,255,0.7);
+            border: 2px solid #333;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            user-select: none;
+        }
+       
+        .dpad-btn:active { background: rgba(200,200,200,0.9); }
+
+        /* Botón de acción más pequeño y con indicación de (E) */
+        #action-btn {
+            position: absolute;
+            bottom: 25px;
+            right: 25px;
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, #FF6347 0%, #FF4500 100%);
+            color: white;
+            border-radius: 50%;
+            border: 3px solid #FFF;
+            font-size: 0.8rem;
+            font-weight: bold;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            line-height: 1.1;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 10;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 69, 0, 0.7); }
+            50% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255, 69, 0, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 69, 0, 0); }
+        }
+
+        /* Confetti */
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #f00;
+            animation: fall linear forwards;
+            z-index: 100;
+        }
+
+        @keyframes fall {
+            to { transform: translateY(100vh) rotate(720deg); }
+        }
+
+        /* Intro Screen */
+        #start-screen {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .bounce { animation: bounce 2s infinite; }
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-30px); }
+            60% { transform: translateY(-15px); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+
+    <div id="game-wrapper">
+        <!-- Canvas for the World -->
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+        <!-- Heads Up Display (HUD) Reducido -->
+        <div id="hud">
+            <h2 class="title-font text-lg text-green-600 mb-0.5 drop-shadow-sm" id="world-title">🏡 Mi Casa</h2>
+            <div class="text-xs font-bold text-gray-700">Misiones: <span id="mission-count" class="text-blue-600">0</span>/5</div>
+            <ul id="mission-list" class="text-xs mt-1 space-y-0.5 font-semibold">
+                <!-- Misiones se llenan por JS -->
+            </ul>
+        </div>
+
+        <!-- On-Screen Controls -->
+        <div id="dpad" class="hidden sm:grid">
+            <div style="grid-column: 2; grid-row: 1;" class="dpad-btn" id="btn-up">⬆️</div>
+            <div style="grid-column: 1; grid-row: 2;" class="dpad-btn" id="btn-left">⬅️</div>
+            <div style="grid-column: 3; grid-row: 2;" class="dpad-btn" id="btn-right">➡️</div>
+            <div style="grid-column: 2; grid-row: 3;" class="dpad-btn" id="btn-down">⬇️</div>
+        </div>
+        
+        <button id="action-btn" class="title-font cursor-pointer">
+            <span>AYUDAR</span>
+            <span style="font-size: 0.65rem; margin-top: 2px;">(E)</span>
+        </button>
+
+        <!-- Minigame Overlay -->
+        <div id="minigame-overlay">
+            <h2 id="minigame-title" class="minigame-title title-font">¡A jugar!</h2>
+            <p id="minigame-instruction" class="text-lg mb-4 text-gray-700 font-bold">Instrucción</p>
+            <div id="minigame-area" class="minigame-area">
+                <!-- Content injected via JS -->
+            </div>
+            <button onclick="closeMinigame(false)" class="mt-6 bg-white border-4 border-gray-300 text-gray-800 px-6 py-2 rounded-full font-bold shadow-lg hover:bg-gray-100 transform transition hover:scale-105">Volver</button>
+        </div>
+
+        <!-- Success Screen Overlay -->
+        <div id="success-screen" class="absolute inset-0 bg-white/95 z-[150] hidden flex-col items-center justify-center">
+            <div class="text-8xl bounce mb-4">🌟</div>
+            <h2 class="title-font text-5xl text-yellow-500 text-center mb-4 drop-shadow-md">¡Mundo Completado!</h2>
+            <p class="text-2xl font-bold text-gray-700 text-center mb-8 px-4">¡Eres un gran ayudante! Has desbloqueado el siguiente nivel.</p>
+            <button id="next-world-btn" class="bg-green-500 border-4 border-green-300 text-white title-font text-2xl px-8 py-4 rounded-full shadow-xl hover:bg-green-600 transform transition hover:scale-105">Ir a la Escuela 🏫</button>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="start-screen">
+            <h1 class="title-font text-6xl text-pink-500 mb-6 drop-shadow-lg" style="text-shadow: 3px 3px 0px white;">Pequeños<br>Ayudantes</h1>
+            <div class="text-8xl mb-6 bounce">👧👦</div>
+            <p class="text-xl font-bold text-gray-800 mb-8 max-w-md bg-white/50 p-4 rounded-xl shadow-sm">¡Explora, juega y descubre lo divertido que es ayudar en casa y en la escuela!</p>
+            <button id="start-btn" class="bg-blue-500 text-white title-font text-3xl px-10 py-5 rounded-full shadow-2xl hover:bg-blue-600 transform transition hover:scale-105 border-4 border-blue-200">¡JUGAR!</button>
+        </div>
+    </div>
+
+<script>
+    // --- ESTADO DEL JUEGO ---
+    const state = {
+        world: 'home', // 'home' o 'school'
+        currentMinigame: null,
+        player: { x: 400, y: 300, size: 40, speed: 6, emoji: '🧑‍🎓' },
+        keys: { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false },
+        missions: {
+            home: [
+                { id: 'trash', name: 'Botar la basura', emoji: '🗑️', x: 700, y: 150, done: false, color: '#A9A9A9' },
+                { id: 'sweep', name: 'Barrer el piso', emoji: '🧹', x: 100, y: 500, done: false, color: '#D2B48C' },
+                { id: 'clothes', name: 'Doblar la ropa', emoji: '👕', x: 400, y: 150, done: false, color: '#87CEFA' },
+                { id: 'bed', name: 'Hacer la cama', emoji: '🛏️', x: 100, y: 150, done: false, color: '#98FB98' },
+                { id: 'toys', name: 'Guardar juguetes', emoji: '🧸', x: 700, y: 500, done: false, color: '#FFA07A' }
+            ],
+            school: [
+                { id: 'board', name: 'Borrar la pizarra', emoji: '⬛', x: 400, y: 150, done: false, color: '#2F4F4F' },
+                { id: 'books', name: 'Ordenar libros', emoji: '📚', x: 700, y: 300, done: false, color: '#CD853F' },
+                { id: 'plant', name: 'Regar la planta', emoji: '🌱', x: 100, y: 500, done: false, color: '#3CB371' },
+                { id: 'papers', name: 'Recoger papeles', emoji: '📄', x: 300, y: 400, done: false, color: '#F0E68C' },
+                { id: 'chairs', name: 'Acomodar sillas', emoji: '🪑', x: 600, y: 180, done: false, color: '#DEB887' }
+            ]
+        },
+        interactionDist: 100, // Incrementado ligeramente para facilitar la interacción
+        nearestObject: null
+    };
+
+    // --- CONFIGURACIÓN DE CANVAS ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const actionBtn = document.getElementById('action-btn');
+
+    // --- BUCLE PRINCIPAL ---
+    let gameLoopId;
+    function startGame() {
+        document.getElementById('start-screen').style.display = 'none';
+        updateHUD();
+        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+            document.getElementById('dpad').classList.remove('hidden');
+        }
+        gameLoopId = requestAnimationFrame(gameLoop);
+    }
+
+    function gameLoop() {
+        update();
+        draw();
+        gameLoopId = requestAnimationFrame(gameLoop);
+    }
+
+    // --- ACTUALIZACIÓN DE LOGICA ---
+    function update() {
+        if (state.currentMinigame !== null) return; 
+
+        // Movimiento
+        let dx = 0, dy = 0;
+        if (state.keys.ArrowUp) dy -= state.player.speed;
+        if (state.keys.ArrowDown) dy += state.player.speed;
+        if (state.keys.ArrowLeft) dx -= state.player.speed;
+        if (state.keys.ArrowRight) dx += state.player.speed;
+
+        // Limites de pantalla (con margen para el efecto 2.5D)
+        state.player.x = Math.max(state.player.size, Math.min(canvas.width - state.player.size, state.player.x + dx));
+        state.player.y = Math.max(100 + state.player.size, Math.min(canvas.height - state.player.size, state.player.y + dy));
+
+        // Detectar cercanía
+        let minDistance = Infinity;
+        let closest = null;
+        const currentMissions = state.missions[state.world];
+
+        currentMissions.forEach(mission => {
+            if (!mission.done) {
+                const dist = Math.hypot(state.player.x - mission.x, state.player.y - mission.y);
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    closest = mission;
+                }
+            }
+        });
+
+        if (minDistance < state.interactionDist) {
+            if (state.nearestObject !== closest) {
+                state.nearestObject = closest;
+                actionBtn.style.display = 'flex';
+            }
+        } else {
+            if (state.nearestObject !== null) {
+                state.nearestObject = null;
+                actionBtn.style.display = 'none';
+            }
+        }
+    }
+
+    // --- DIBUJADO DE CANVAS ---
+    function draw() {
+        const time = Date.now();
+        
+        // --- 1. FONDO DINÁMICO ---
+        if (state.world === 'home') {
+            const wallGrad = ctx.createLinearGradient(0, 0, 0, 300);
+            wallGrad.addColorStop(0, '#FFE4E1');
+            wallGrad.addColorStop(1, '#FFB6C1');
+            ctx.fillStyle = wallGrad;
+            ctx.fillRect(0, 0, canvas.width, 300);
+
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 290, canvas.width, 15);
+            ctx.fillStyle = 'rgba(0,0,0,0.1)';
+            ctx.fillRect(0, 305, canvas.width, 5);
+
+            const floorGrad = ctx.createLinearGradient(0, 310, 0, 600);
+            floorGrad.addColorStop(0, '#DEB887');
+            floorGrad.addColorStop(1, '#8B4513');
+            ctx.fillStyle = floorGrad;
+            ctx.fillRect(0, 310, canvas.width, 290);
+
+            ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+            ctx.lineWidth = 2;
+            for(let i = -200; i < canvas.width + 200; i += 60) {
+                ctx.beginPath();
+                ctx.moveTo(i, 310);
+                ctx.lineTo(i + (i - canvas.width/2) * 0.8, 600);
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(350, 40, 100, 120);
+            
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            const cloudX = (time / 60) % 180 - 40;
+            ctx.beginPath();
+            ctx.arc(350 + cloudX, 80, 15, 0, Math.PI*2);
+            ctx.arc(365 + cloudX, 70, 20, 0, Math.PI*2);
+            ctx.arc(380 + cloudX, 80, 15, 0, Math.PI*2);
+            ctx.fill();
+
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 10;
+            ctx.strokeRect(350, 40, 100, 120);
+            ctx.lineWidth = 6;
+            ctx.beginPath(); ctx.moveTo(400, 40); ctx.lineTo(400, 160); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(350, 100); ctx.lineTo(450, 100); ctx.stroke();
+
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            ctx.fillStyle = 'rgba(255, 255, 220, 0.15)';
+            ctx.beginPath();
+            ctx.moveTo(350, 40);
+            ctx.lineTo(150 + Math.sin(time/2000)*40, 600);
+            ctx.lineTo(550 + Math.cos(time/2000)*40, 600);
+            ctx.lineTo(450, 40);
+            ctx.fill();
+            ctx.restore();
+
+            const rugScale = 1 + Math.sin(time / 500) * 0.02;
+            ctx.save();
+            ctx.translate(400, 420);
+            ctx.scale(rugScale, rugScale * 0.5);
+            const rugGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 220);
+            rugGrad.addColorStop(0, '#FF69B4');
+            rugGrad.addColorStop(1, '#C71585');
+            ctx.fillStyle = rugGrad;
+            ctx.beginPath();
+            ctx.arc(0, 0, 220, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.lineWidth = 15;
+            ctx.strokeStyle = '#FFC0CB';
+            ctx.stroke();
+            ctx.restore();
+
+        } else {
+            // --- ESCUELA ---
+            const wallGrad = ctx.createLinearGradient(0, 0, 0, 300);
+            wallGrad.addColorStop(0, '#E0FFFF');
+            wallGrad.addColorStop(1, '#87CEFA');
+            ctx.fillStyle = wallGrad;
+            ctx.fillRect(0, 0, canvas.width, 300);
+
+            ctx.fillStyle = '#4682B4';
+            ctx.fillRect(0, 290, canvas.width, 20);
+            ctx.fillStyle = 'rgba(0,0,0,0.15)';
+            ctx.fillRect(0, 310, canvas.width, 5);
+
+            ctx.fillStyle = '#F0F8FF';
+            ctx.fillRect(0, 310, canvas.width, 290);
+            
+            ctx.fillStyle = 'rgba(176, 196, 222, 0.4)';
+            for(let i = -100; i < canvas.width + 100; i += 100) {
+                for(let j = 310; j < canvas.height; j += 60) {
+                    const tileOffset = ((Math.floor(i/100) + Math.floor((j-310)/60)) % 2 === 0);
+                    if (tileOffset) {
+                        ctx.beginPath();
+                        ctx.moveTo(i + (j-310)*0.2, j);
+                        ctx.lineTo(i + 100 + (j-310)*0.2, j);
+                        ctx.lineTo(i + 100 + (j+60-310)*0.2, j + 60);
+                        ctx.lineTo(i + (j+60-310)*0.2, j + 60);
+                        ctx.fill();
+                    }
+                }
+            }
+
+            ctx.save();
+            ctx.translate(120, 100);
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.beginPath(); ctx.arc(5, 5, 45, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath(); ctx.arc(0, 0, 45, 0, Math.PI * 2); ctx.fill();
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = '#333';
+            ctx.stroke();
+            for(let i=0; i<12; i++) {
+                ctx.rotate(Math.PI/6);
+                ctx.beginPath(); ctx.moveTo(0, -35); ctx.lineTo(0, -40); ctx.lineWidth=3; ctx.stroke();
+            }
+            ctx.rotate((time / 60000) * Math.PI * 2);
+            ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-25); ctx.lineWidth=5; ctx.stroke();
+            ctx.rotate((time / 1000) * Math.PI * 2);
+            ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-35); ctx.lineWidth=2; ctx.strokeStyle='red'; ctx.stroke();
+            ctx.beginPath(); ctx.arc(0,0,4,0,Math.PI*2); ctx.fillStyle='#333'; ctx.fill();
+            ctx.restore();
+
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.fillRect(205, 45, 400, 140);
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(190, 30, 420, 160);
+            ctx.fillStyle = '#2F4F4F';
+            ctx.fillRect(200, 40, 400, 140);
+            
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = 'white';
+            ctx.font = '30px "Fredoka One", cursive';
+            ctx.fillText("A B C   1 2 3", 400, 85);
+            ctx.font = '18px "Nunito", sans-serif';
+            ctx.fillStyle = '#FFD700';
+            ctx.fillText("¡Aprender es una aventura!", 400, 135);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            for(let i=0; i<20; i++) {
+                const px = (Math.sin(time/1000 + i*3) * 60) + 400 + (i*15 - 150);
+                const py = (Math.cos(time/1200 + i) * 40) + 110 + (i*6 - 60);
+                ctx.beginPath();
+                ctx.arc(px, py, 1.5, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        // --- 2. DIBUJAR MISIONES E ITEMS ---
+        const currentMissions = state.missions[state.world];
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+       
+        const sortedMissions = [...currentMissions].sort((a,b) => a.y - b.y);
+
+        sortedMissions.forEach(mission => {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.beginPath();
+            ctx.ellipse(mission.x, mission.y + 35, 30, 12, 0, 0, Math.PI*2);
+            ctx.fill();
+
+            if (!mission.done) {
+                if (state.nearestObject === mission) {
+                    const glowRadius = 45 + Math.sin(time/150)*10;
+                    ctx.fillStyle = 'rgba(255, 255, 0, 0.4)';
+                    ctx.beginPath();
+                    ctx.ellipse(mission.x, mission.y + 35, glowRadius, glowRadius*0.4, 0, 0, Math.PI*2);
+                    ctx.fill();
+                }
+
+                const floatY = mission.y + Math.sin(time/300 + mission.x) * 6;
+
+                ctx.fillStyle = mission.color;
+                ctx.beginPath();
+                ctx.arc(mission.x, floatY, 40, 0, Math.PI*2);
+                ctx.fill();
+                ctx.strokeStyle = '#FFFFFF';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                ctx.font = '40px Arial';
+                ctx.fillText(mission.emoji, mission.x, floatY + 5);
+            } else {
+                ctx.fillStyle = '#90EE90';
+                ctx.beginPath();
+                ctx.arc(mission.x, mission.y + 10, 30, 0, Math.PI*2);
+                ctx.fill();
+                ctx.strokeStyle = '#228B22';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                ctx.font = '30px Arial';
+                ctx.fillText('✅', mission.x, mission.y + 15);
+            }
+        });
+
+        // --- 3. DIBUJAR JUGADOR ---
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+        ctx.beginPath();
+        ctx.ellipse(state.player.x, state.player.y + 40, 30, 12, 0, 0, Math.PI*2);
+        ctx.fill();
+
+        let playerDrawY = state.player.y;
+        if (state.keys.ArrowUp || state.keys.ArrowDown || state.keys.ArrowLeft || state.keys.ArrowRight) {
+            playerDrawY += Math.sin(time/80) * 8;
+        }
+
+        // Halo blanco sutil para que el jugador destaque mucho más
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.beginPath();
+        ctx.arc(state.player.x, playerDrawY + 5, 45, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.font = '75px Arial'; // Personaje mucho más grande y visible
+        ctx.fillText(state.player.emoji, state.player.x, playerDrawY + 15);
+    }
+
+    // --- ACTUALIZACIÓN DE INTERFAZ ---
+    function updateHUD() {
+        const currentMissions = state.missions[state.world];
+        let completadas = currentMissions.filter(m => m.done).length;
+       
+        document.getElementById('world-title').innerText = state.world === 'home' ? '🏡 Mi Casa' : '🏫 Mi Escuela';
+        document.getElementById('mission-count').innerText = completadas;
+       
+        const list = document.getElementById('mission-list');
+        list.innerHTML = '';
+        currentMissions.forEach(m => {
+            const li = document.createElement('li');
+            li.innerHTML = `${m.emoji} ${m.name} ${m.done ? '<span class="text-green-600 font-extrabold ml-2">✅</span>' : ''}`;
+            if(m.done) li.classList.add('line-through', 'text-gray-400');
+            list.appendChild(li);
+        });
+
+        if (completadas === 5) {
+            setTimeout(() => {
+                if (state.world === 'home') {
+                    document.getElementById('success-screen').style.display = 'flex';
+                    shootConfetti();
+                } else {
+                    document.getElementById('success-screen').innerHTML = `
+                        <div class="text-8xl bounce mb-4">🏆</div>
+                        <h2 class="title-font text-5xl text-yellow-500 text-center mb-4 drop-shadow-md">¡Felicidades!</h2>
+                        <p class="text-2xl font-bold text-gray-700 text-center mb-8 px-4 bg-white/80 rounded-xl p-4">Eres el mejor ayudante del mundo. ¡Gracias por ayudar en casa y en la escuela!</p>
+                        <button onclick="location.reload()" class="bg-blue-500 border-4 border-blue-300 text-white title-font text-2xl px-8 py-4 rounded-full shadow-xl hover:bg-blue-600 transform transition hover:scale-105">Jugar de nuevo 🔄</button>
+                    `;
+                    document.getElementById('success-screen').style.display = 'flex';
+                    shootConfetti();
+                    setInterval(shootConfetti, 2000);
+                }
+            }, 1000);
+        }
+    }
+
+    // --- SISTEMA DE MINIJUEGOS ---
+    function openMinigame() {
+        if (!state.nearestObject || state.currentMinigame !== null) return;
+        state.currentMinigame = state.nearestObject;
+        
+        const overlay = document.getElementById('minigame-overlay');
+        const area = document.getElementById('minigame-area');
+        
+        document.getElementById('minigame-title').innerText = state.nearestObject.name;
+        area.innerHTML = ''; 
+        
+        switch(state.nearestObject.id) {
+            case 'trash': initMinigameTrash(area); break;
+            case 'sweep': initMinigameSweep(area); break;
+            case 'clothes': initMinigameClothes(area); break;
+            case 'bed': initMinigameBed(area); break;
+            case 'toys': initMinigameToys(area); break;
+            case 'board': initMinigameBoard(area); break;
+            case 'books': initMinigameBooks(area); break;
+            case 'plant': initMinigamePlant(area); break;
+            case 'papers': initMinigamePapers(area); break;
+            case 'chairs': initMinigameChairs(area); break;
+        }
+        
+        overlay.style.display = 'flex';
+        actionBtn.style.display = 'none';
+        state.keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+    }
+
+    function closeMinigame(success) {
+        document.getElementById('minigame-overlay').style.display = 'none';
+        if (success && state.currentMinigame) {
+            state.currentMinigame.done = true;
+            shootConfetti();
+            updateHUD();
+        }
+        state.currentMinigame = null;
+        state.nearestObject = null;
+    }
+
+    // --- LÓGICA DE MINIJUEGOS (D&D auxiliar) ---
+    function makeDraggable(el, dropZoneId, onDropSuccess) {
+        let isDragging = false;
+        
+        const startDrag = (e) => {
+            isDragging = true;
+            el.style.zIndex = 100;
+        };
+        
+        const moveDrag = (e) => {
+            if (!isDragging) return;
+            e.preventDefault();
+            const parentRect = el.parentElement.getBoundingClientRect();
+            let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            let x = clientX - parentRect.left - (el.offsetWidth/2);
+            let y = clientY - parentRect.top - (el.offsetHeight/2);
+            el.style.left = `${x}px`;
+            el.style.top = `${y}px`;
+        };
+        
+        const endDrag = (e) => {
+            if (!isDragging) return;
+            isDragging = false;
+            el.style.zIndex = 1;
+            const dropZone = document.getElementById(dropZoneId);
+            if(dropZone) {
+                const rect1 = el.getBoundingClientRect();
+                const rect2 = dropZone.getBoundingClientRect();
+                // Simple superposición
+                if (!(rect1.right < rect2.left || rect1.left > rect2.right || rect1.bottom < rect2.top || rect1.top > rect2.bottom)) {
+                    onDropSuccess();
+                }
+            }
+        };
+        
+        el.addEventListener('mousedown', startDrag);
+        el.addEventListener('touchstart', startDrag, {passive: false});
+        document.addEventListener('mousemove', moveDrag);
+        document.addEventListener('touchmove', moveDrag, {passive: false});
+        document.addEventListener('mouseup', endDrag);
+        document.addEventListener('touchend', endDrag);
+    }
+
+    // 1. Basura (Casa)
+    function initMinigameTrash(area) {
+        document.getElementById('minigame-instruction').innerText = "Arrastra la basura al basurero.";
+        area.innerHTML = `
+            <div id="bin" class="drop-zone">🗑️</div>
+            <div id="t1" class="interactive-item" style="top:20px; left:50px;">🍌</div>
+            <div id="t2" class="interactive-item" style="top:100px; left:200px;">🧃</div>
+            <div id="t3" class="interactive-item" style="top:200px; left:80px;">📄</div>
+        `;
+        let itemsLeft = 3;
+        const checkWin = (el) => {
+            el.style.display = 'none';
+            itemsLeft--;
+            if(itemsLeft === 0) setTimeout(() => closeMinigame(true), 500);
+        };
+        ['t1','t2','t3'].forEach(id => {
+            const el = document.getElementById(id);
+            makeDraggable(el, 'bin', () => checkWin(el));
+        });
+    }
+
+    // 2. Barrer (Casa)
+    function initMinigameSweep(area) {
+        document.getElementById('minigame-instruction').innerText = "Pasa el dedo o ratón sobre las manchas para limpiar.";
+        area.innerHTML = '<div class="absolute inset-0 cursor-crosshair" id="sweep-zone"></div>';
+        const zone = document.getElementById('sweep-zone');
+        
+        for(let i=0; i<8; i++) {
+            const spot = document.createElement('div');
+            spot.className = 'dust-spot';
+            spot.style.top = Math.random() * 250 + 'px';
+            spot.style.left = Math.random() * 500 + 'px';
+            spot.dataset.clean = 0;
+            zone.appendChild(spot);
+        }
+
+        let cleanCount = 0;
+        const clean = (e) => {
+            if(e.target.classList.contains('dust-spot') && e.target.style.opacity !== '0') {
+                e.target.style.opacity = '0';
+                cleanCount++;
+                if(cleanCount === 8) setTimeout(() => closeMinigame(true), 500);
+            }
+        };
+
+        zone.addEventListener('mousemove', clean);
+        zone.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const el = document.elementFromPoint(touch.clientX, touch.clientY);
+            if(el) clean({target: el});
+        }, {passive: false});
+    }
+
+    // 3. Ropa (Casa)
+    function initMinigameClothes(area) {
+        document.getElementById('minigame-instruction').innerText = "Toca cada prenda para doblarla.";
+        area.innerHTML = `
+            <div class="flex justify-around items-center h-full">
+                <div id="c1" class="text-6xl cursor-pointer hover:scale-110 transition">👖</div>
+                <div id="c2" class="text-6xl cursor-pointer hover:scale-110 transition">👕</div>
+                <div id="c3" class="text-6xl cursor-pointer hover:scale-110 transition">🧦</div>
+            </div>
+        `;
+        let folded = 0;
+        ['c1','c2','c3'].forEach(id => {
+            const el = document.getElementById(id);
+            el.onclick = () => {
+                el.innerText = '📦';
+                el.style.pointerEvents = 'none';
+                folded++;
+                if(folded===3) setTimeout(() => closeMinigame(true), 500);
+            };
+        });
+    }
+
+    // 4. Cama (Casa)
+    function initMinigameBed(area) {
+        document.getElementById('minigame-instruction').innerText = "Arrastra la almohada y manta a la cama.";
+        area.innerHTML = `
+            <div id="bed" class="drop-zone" style="font-size: 8rem; right: 200px;">🛏️</div>
+            <div id="b1" class="interactive-item" style="top:50px; left:50px;">☁️</div>
+            <div id="b2" class="interactive-item" style="top:200px; left:100px;">🟦</div>
+        `;
+        let itemsLeft = 2;
+        const checkWin = (el) => {
+            el.style.display = 'none';
+            itemsLeft--;
+            if(itemsLeft === 0) {
+                document.getElementById('bed').innerText = '✨🛏️✨';
+                setTimeout(() => closeMinigame(true), 800);
+            }
+        };
+        ['b1','b2'].forEach(id => {
+            const el = document.getElementById(id);
+            makeDraggable(el, 'bed', () => checkWin(el));
+        });
+    }
+
+    // 5. Juguetes (Casa)
+    function initMinigameToys(area) {
+        document.getElementById('minigame-instruction').innerText = "Arrastra los juguetes a la caja.";
+        area.innerHTML = `
+            <div id="box" class="drop-zone">📦</div>
+            <div id="j1" class="interactive-item" style="top:20px; left:50px;">🚗</div>
+            <div id="j2" class="interactive-item" style="top:100px; left:200px;">🧩</div>
+            <div id="j3" class="interactive-item" style="top:200px; left:80px;">🤖</div>
+        `;
+        let itemsLeft = 3;
+        const checkWin = (el) => {
+            el.style.display = 'none';
+            itemsLeft--;
+            if(itemsLeft === 0) setTimeout(() => closeMinigame(true), 500);
+        };
+        ['j1','j2','j3'].forEach(id => {
+            const el = document.getElementById(id);
+            makeDraggable(el, 'box', () => checkWin(el));
+        });
+    }
+
+    // 6. Pizarra (Escuela)
+    function initMinigameBoard(area) {
+        document.getElementById('minigame-instruction').innerText = "Borra toda la pizarra pasando el dedo/ratón.";
+        area.innerHTML = `
+            <div class="w-full h-full bg-green-800 text-white font-mono text-4xl p-10 select-none cursor-crosshair relative" id="chalkboard">
+                <div class="absolute inset-0 p-8">2 + 2 = 4<br>A E I O U<br>Dibujo feo 🖍️</div>
+                <div class="absolute inset-0 bg-green-800 opacity-0" id="eraser-layer" style="transition: opacity 0.5s;"></div>
+            </div>
+        `;
+        let erased = 0;
+        const board = document.getElementById('chalkboard');
+        const layer = document.getElementById('eraser-layer');
+        
+        const erase = (e) => {
+            e.preventDefault();
+            erased += 2;
+            layer.style.opacity = Math.min(erased/100, 1);
+            if(erased >= 100) setTimeout(() => closeMinigame(true), 500);
+        };
+        board.addEventListener('mousemove', erase);
+        board.addEventListener('touchmove', erase, {passive: false});
+    }
+
+    // 7. Libros (Escuela)
+    function initMinigameBooks(area) {
+        document.getElementById('minigame-instruction').innerText = "Haz clic en los libros para apilarlos.";
+        area.innerHTML = `
+            <div class="flex justify-around items-end h-full pb-10">
+                <div id="l1" class="text-6xl cursor-pointer transform -rotate-12">📕</div>
+                <div id="l2" class="text-6xl cursor-pointer transform rotate-12">📗</div>
+                <div id="l3" class="text-6xl cursor-pointer transform -rotate-6">📘</div>
+            </div>
+        `;
+        let stacked = 0;
+        ['l1','l2','l3'].forEach(id => {
+            const el = document.getElementById(id);
+            el.onclick = () => {
+                el.style.transform = 'rotate(0deg)';
+                el.style.pointerEvents = 'none';
+                stacked++;
+                if(stacked===3) setTimeout(() => closeMinigame(true), 500);
+            };
+        });
+    }
+
+    // 8. Planta (Escuela)
+    function initMinigamePlant(area) {
+        document.getElementById('minigame-instruction').innerText = "Toca la regadera varias veces para regar.";
+        area.innerHTML = `
+            <div class="flex flex-col items-center justify-center h-full">
+                <div id="water" class="text-6xl mb-4 cursor-pointer hover:scale-110 active:rotate-[-20deg] transition">🚿</div>
+                <div id="plant" class="text-6xl">🌱</div>
+            </div>
+        `;
+        let waterDrops = 0;
+        document.getElementById('water').onclick = () => {
+            waterDrops++;
+            const plant = document.getElementById('plant');
+            if(waterDrops === 1) plant.innerText = '🌿';
+            if(waterDrops === 3) plant.innerText = '🪴';
+            if(waterDrops === 5) {
+                plant.innerText = '🌻';
+                setTimeout(() => closeMinigame(true), 600);
+            }
+        };
+    }
+
+    // 9. Papeles (Escuela)
+    function initMinigamePapers(area) {
+        document.getElementById('minigame-instruction').innerText = "Arrastra los papeles al papelero.";
+        area.innerHTML = `
+            <div id="bin-school" class="drop-zone">🗑️</div>
+            <div id="p1" class="interactive-item" style="top:50px; left:100px;">📄</div>
+            <div id="p2" class="interactive-item" style="top:150px; left:300px;">📝</div>
+            <div id="p3" class="interactive-item" style="top:250px; left:50px;">🗞️</div>
+        `;
+        let itemsLeft = 3;
+        const checkWin = (el) => {
+            el.style.display = 'none';
+            itemsLeft--;
+            if(itemsLeft === 0) setTimeout(() => closeMinigame(true), 500);
+        };
+        ['p1','p2','p3'].forEach(id => {
+            const el = document.getElementById(id);
+            makeDraggable(el, 'bin-school', () => checkWin(el));
+        });
+    }
+
+    // 10. Sillas (Escuela)
+    function initMinigameChairs(area) {
+        document.getElementById('minigame-instruction').innerText = "Toca las sillas caídas para levantarlas.";
+        area.innerHTML = `
+            <div class="flex justify-around items-center h-full">
+                <div id="s1" class="text-6xl cursor-pointer transform rotate-90">🪑</div>
+                <div class="text-6xl">🪑</div>
+                <div id="s2" class="text-6xl cursor-pointer transform -rotate-90">🪑</div>
+            </div>
+        `;
+        let fixed = 0;
+        ['s1','s2'].forEach(id => {
+            const el = document.getElementById(id);
+            el.onclick = () => {
+                el.style.transform = 'rotate(0deg)';
+                el.style.pointerEvents = 'none';
+                fixed++;
+                if(fixed===2) setTimeout(() => closeMinigame(true), 500);
+            };
+        });
+    }
+
+    // --- EFECTOS ---
+    function shootConfetti() {
+        for(let i=0; i<50; i++) {
+            const conf = document.createElement('div');
+            conf.className = 'confetti';
+            conf.style.left = Math.random() * 100 + 'vw';
+            conf.style.top = -10 + 'px';
+            conf.style.backgroundColor = ['#f00','#0f0','#00f','#ff0','#f0f','#0ff'][Math.floor(Math.random()*6)];
+            conf.style.animationDuration = (Math.random() * 2 + 1) + 's';
+            document.body.appendChild(conf);
+            setTimeout(() => conf.remove(), 3000);
+        }
+    }
+
+    // --- CONTROLES ---
+    // Evento Teclado: Movimiento y Tecla "E" para interactuar
+    window.addEventListener('keydown', (e) => {
+        if(state.keys.hasOwnProperty(e.code)) state.keys[e.code] = true;
+        
+        // Interacción con la tecla E
+        if (e.key.toLowerCase() === 'e') {
+            if (state.nearestObject && state.currentMinigame === null) {
+                openMinigame();
+            }
+        }
+    });
+    window.addEventListener('keyup', (e) => {
+        if(state.keys.hasOwnProperty(e.code)) state.keys[e.code] = false;
+    });
+
+    // Evento Canvas: Hacer Click (o Tocar) directamente sobre la misión
+    canvas.addEventListener('pointerdown', (e) => {
+        if (state.currentMinigame !== null) return;
+        const rect = canvas.getBoundingClientRect();
+        
+        // Escalar coordenadas del click al tamaño real del canvas lógico (800x600)
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const clickX = (e.clientX - rect.left) * scaleX;
+        const clickY = (e.clientY - rect.top) * scaleY;
+
+        // Comprobar si se hizo clic cerca del objeto más próximo disponible
+        if (state.nearestObject) {
+            const dist = Math.hypot(clickX - state.nearestObject.x, clickY - state.nearestObject.y);
+            // Si el click está dentro de un radio razonable (70px) del objeto
+            if (dist < 70) {
+                openMinigame();
+            }
+        }
+    });
+
+    // Mobile D-PAD
+    const dpadBtns = {
+        'btn-up': 'ArrowUp', 'btn-down': 'ArrowDown',
+        'btn-left': 'ArrowLeft', 'btn-right': 'ArrowRight'
+    };
+    for(let id in dpadBtns) {
+        const btn = document.getElementById(id);
+        const code = dpadBtns[id];
+        const press = (e) => { e.preventDefault(); state.keys[code] = true; };
+        const release = (e) => { e.preventDefault(); state.keys[code] = false; };
+       
+        btn.addEventListener('mousedown', press);
+        btn.addEventListener('touchstart', press, {passive: false});
+        btn.addEventListener('mouseup', release);
+        btn.addEventListener('touchend', release);
+        btn.addEventListener('mouseleave', release);
+    }
+
+    // Botón en pantalla
+    actionBtn.addEventListener('click', openMinigame);
+    actionBtn.addEventListener('touchstart', (e) => { e.preventDefault(); openMinigame(); }, {passive: false});
+
+    // Iniciar Juego Principal
+    document.getElementById('start-btn').addEventListener('click', startGame);
+
+    // Transición de Mundo
+    document.getElementById('next-world-btn').addEventListener('click', () => {
+        document.getElementById('success-screen').style.display = 'none';
+        state.world = 'school';
+        state.player.x = 400;
+        state.player.y = 300;
+        updateHUD();
+    });
+
+</script>
+</body>
+</html>
